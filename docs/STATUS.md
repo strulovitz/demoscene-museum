@@ -4,6 +4,29 @@
 
 ---
 
+### 🦊 SOLVED — REKO DECOMPILES THE BINARY ✅
+Hex-Rays can never decompile 16-bit, and Ghidra's C decompiler fails. **Reko 0.12.5
+does it.** Nir installed it and ran:
+
+```
+"C:\Program Files\jklSoft\Reko\reko.exe" decompile --arch x86-real-16 --env ms-dos --base 0C00:0100 TUBE.COM
+```
+
+Output in `C:\DEMOS\dos256b\tube\TUBE.reko\`:
+- **`TUBE_code.c`** — 4113 bytes, 140 lines of C. ← the deliverable
+- `TUBE_code.asm`, `TUBE_code.dis`, `TUBE.h`
+- only warning: "Selector A000 has no known segment" (harmless)
+
+Reko recovers `cos()`, `sin()`, `atan2()`, `sqrt()` for the x87 maths, and
+independently confirms our three constants. `0C00:0100` = file offset `0xF8`,
+which maps directly onto IDA's `0x10100`.
+
+> ⚠️ Run Reko from a copy under `C:\DEMOS\_WORK\`, not in the demo folder — it writes
+> output next to the input, and the demo folder also holds the **shipped `TUBE.ASM`
+> which must never be read**.
+
+---
+
 ## 0. UPDATE 2026-10-13 — REA → IDA IS NOW (MOSTLY) WORKING
 
 ### ✅ SOLVED: why REA→IDA was "broken" for 6 sessions
