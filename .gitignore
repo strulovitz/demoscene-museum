@@ -1,0 +1,18 @@
+# RE-specific scratch output
+*.id0
+*.id1
+*.nam
+*.til
+*.idb
+*.reko/
+*.log
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# Editors / OS
+.vscode/
+Thumbs.db
+desktop.ini

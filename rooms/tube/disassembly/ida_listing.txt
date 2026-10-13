@@ -1,0 +1,120 @@
+keys: ['name', 'start_ea', 'stack_frame', 'lines']
+0x10100    seg000   mov al, 13h
+0x10102    seg000   int 10h
+0x10104    seg000   push 0A000h
+0x10107    seg000   pop es
+0x10108    seg000   mov ax, cs
+0x1010a    seg000   add ah, 10h
+0x1010d    seg000   mov fs, ax
+0x1010f    seg000   xor cx, cx
+0x10111    seg000   mov dx, 3C8h
+0x10114    seg000   mov ax, cx
+0x10116    seg000   out dx, al
+0x10117    seg000   inc dx
+0x10118    seg000   sar al, 1
+0x1011a    seg000   js loc_10123
+0x1011c    seg000   out dx, al
+0x1011d    seg000   mul , al
+0x1011f    seg000   shr ax, 6
+0x10122    seg000   out dx, al
+0x10123    seg000   mov al, 0
+0x10125    seg000   out dx, al
+0x10126    seg000   jns loc_10130
+0x10128    seg000   sub al, cl
+0x1012a    seg000   shr al, 1
+0x1012c    seg000   out dx, al
+0x1012d    seg000   shr al, 1
+0x1012f    seg000   out dx, al
+0x10130    seg000   mov bx, cx
+0x10132    seg000   mov fs:[bx], bl
+0x10135    seg000   loop loc_10111,
+0x10137    seg000   mov bx, cx
+0x10139    seg000   add ax, cx
+0x1013b    seg000   rol ax, cl
+0x1013d    seg000   mov dh, al
+0x1013f    seg000   sar dh, 5
+0x10142    seg000   adc dl, dh
+0x10144    seg000   adc dl, fs:[bx+0FFh]
+0x10149    seg000   shr dl, 1
+0x1014b    seg000   mov fs:[bx], dl
+0x1014e    seg000   not bh
+0x10150    seg000   mov fs:[bx], dl
+0x10153    seg000   loop loc_10137,
+0x10155    seg000   fninit
+0x10157    seg000   fldz
+0x10159    seg000   add bh, 8
+0x1015c    seg000   mov di, 204h
+0x1015f    seg000   fadd , dword ptr [di-0Ch]
+0x10162    seg000   push di
+0x10163    seg000   mov dx, 0FFB0h
+0x10166    seg000   mov bp, 0FF60h
+0x10169    seg000   mov si, 1FCh
+0x1016c    seg000   fild , word ptr [si-2Ah]
+0x1016f    seg000   mov [si], bp
+0x10171    seg000   fild , word ptr [si]
+0x10173    seg000   mov [si], dx
+0x10175    seg000   fild , word ptr [si]
+0x10177    seg000   mov cl, 2
+0x10179    seg000   fld , st(3)
+0x1017b    seg000   fsincos
+0x1017d    seg000   fld , st(2)
+0x1017f    seg000   fmul st, st(1)
+0x10181    seg000   fld , st(4)
+0x10183    seg000   fmul st, st(3)
+0x10185    seg000   fsubp st(1), st
+0x10187    seg000   fxch , st(3)
+0x10189    seg000   fmulp st(2), st
+0x1018b    seg000   fmulp st(3), st
+0x1018d    seg000   faddp st(2), st
+0x1018f    seg000   fxch , st(2)
+0x10191    seg000   loop loc_10179,
+0x10193    seg000   fld , st(1)
+0x10195    seg000   fmul st, st
+0x10197    seg000   fld , st(1)
+0x10199    seg000   fmul st, st
+0x1019b    seg000   faddp st(1), st
+0x1019d    seg000   fsqrt
+0x1019f    seg000   fdivp st(3), st
+0x101a1    seg000   fpatan
+0x101a3    seg000   fimul , word ptr [si-4]
+0x101a6    seg000   fistp , word ptr [si]
+0x101a8    seg000   fimul , word ptr [si-4]
+0x101ab    seg000   fistp , word ptr [si+1]
+0x101ae    seg000   mov si, [si]
+0x101b0    seg000   lea ax, [bx+si]
+0x101b2    seg000   add al, ah
+0x101b4    seg000   and al, 40h
+0x101b6    seg000   mov al, 0FBh
+0x101b8    seg000   jz loc_101C9
+0x101ba    seg000   shl si, 2
+0x101bd    seg000   lea ax, [bx+si]
+0x101bf    seg000   sub al, ah
+0x101c1    seg000   mov al, 0F0h
+0x101c3    seg000   jns loc_101C9
+0x101c5    seg000   shl si, 1
+0x101c7    seg000   mov al, 0D0h
+0x101c9    seg000   add al, fs:[bx+si]
+0x101cc    seg000   add [di], al
+0x101ce    seg000   inc di
+0x101cf    seg000   inc bp
+0x101d0    seg000   cmp bp, 0A0h
+0x101d4    seg000   jnz loc_10169
+0x101d6    seg000   inc dx
+0x101d7    seg000   cmp dx, 50h
+0x101da    seg000   jnz loc_10166
+0x101dc    seg000   pop si
+0x101dd    seg000   mov di, 1900h
+0x101e0    seg000   mov ch, 64h
+0x101e2    seg000   movsw ,
+0x101e4    seg000   mov ch, 0C8h
+0x101e6    seg000   dec si
+0x101e7    seg000   sar byte ptr [si], 2
+0x101ea    seg000   loop loc_101E6,
+0x101ec    seg000   in al, 60h
+0x101ee    seg000   cbw
+0x101ef    seg000   dec ax
+0x101f0    seg000   jnz loc_10159
+0x101f4    seg000   mov al, 3
+0x101f6    seg000   int 10h
+0x101f8    seg000   sub [bx+si], ax
+0x101fa    seg000   retn
