@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<!-- shared/web/examples/sine.html : open via  python -m http.server 8000  then
+     http://localhost:8000/shared/web/examples/sine.html  -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>sine test</title>
+</head>
+<body style="background:#111;color:#ddd;font-family:sans-serif;padding:2rem">
+  <button id="start">Start sound</button>
+  <button id="stop" disabled>Stop</button>
+  <label> frequency <input id="freq" type="range" min="110" max="880" value="440"></label>
+  <script type="module">
+    import { startAudio } from '../audio-host.js';
+    let audio = null;
+    document.getElementById('start').onclick = async () => {
+      audio = await startAudio(new URL('./sine-audio.js', import.meta.url).href);
+      document.getElementById('start').disabled = true;
+      document.getElementById('stop').disabled = false;
+    };
+    document.getElementById('stop').onclick = async () => {
+      await audio.stop(); audio = null;
+      document.getElementById('start').disabled = false;
+      document.getElementById('stop').disabled = true;
+    };
+    document.getElementById('freq').oninput = (e) => audio && audio.setParam('FREQUENCY', Number(e.target.value));
+  </script>
+</body>
+</html>

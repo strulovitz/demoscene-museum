@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>tube - baze/3SC 2001 - JavaScript remake</title>
+  <style>
+    body { margin: 0; background: #111; color: #ddd; font-family: sans-serif; }
+    #stage { max-width: 960px; margin: 0 auto; padding: 1rem; }
+    .exhibit-controls { display: flex; flex-direction: column; gap: .5rem; margin-top: 1rem; }
+    .exhibit-controls label { display: flex; align-items: center; gap: .5rem; }
+    .exhibit-controls input[type=range] { flex: 1; }
+    .exhibit-fps { opacity: .6; }
+  </style>
+</head>
+<body>
+  <div id="stage"></div>
+  <script type="module">
+    import { startPlayer } from '../../../shared/web/exhibit-player.js';
+    import exhibit from './tube.js';
+    startPlayer(exhibit, document.getElementById('stage'));
+  </script>
+</body>
+</html>
