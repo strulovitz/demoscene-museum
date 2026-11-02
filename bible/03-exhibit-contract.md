@@ -1,4 +1,4 @@
-﻿# Chapter 3 â€” The Exhibit Contract
+# Chapter 3 â€” The Exhibit Contract
 
 An "exhibit" is one ported work.  This chapter defines EXACTLY what an
 exhibit folder must contain and how the JavaScript port talks to the museum.
