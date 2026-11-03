@@ -1,47 +1,76 @@
 <!DOCTYPE html>
-<!-- shared/web/examples/mod.html : open via  python -m http.server 8000  then
+<!-- shared/web/examples/mod.html : python -m http.server 8000  then
      http://localhost:8000/shared/web/examples/mod.html  -->
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<title>MOD player test</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MOD player test</title>
+  <style>
+    body { background: #111; color: #ddd; font-family: monospace; padding: 1rem; }
+    canvas { width: 100%; max-width: 960px; display: block; margin: 1rem 0; image-rendering: pixelated; }
+    label { margin-right: 1rem; }
+  </style>
 </head>
-<body style="background:#111;color:#ddd;font-family:monospace;padding:2rem">
+<body>
   <button id="start">Start (built-in test song)</button>
   <button id="stop" disabled>Stop</button>
   <label> open a .mod file: <input id="file" type="file" accept=".mod" disabled></label>
-  <label> tempo <input id="bpm" type="range" min="60" max="240" value="125"></label>
-  <pre id="pos"></pre>
+  <br><br>
+  <label> speed <input id="speed" type="range" min="0.5" max="2" step="0.05" value="1"> <span id="speedText">1.00</span></label>
+  <span id="mutes"></span>
+  <canvas id="view" width="640" height="400"></canvas>
   <script type="module">
     import { startAudio } from '../audio-host.js';
-    let audio = null;
+    import { parseMod, makeTestMod } from './mod-audio.js';
+    import { TrackerView } from '../tracker-view.js';
+
     const el = id => document.getElementById(id);
+    let audio = null;
+    let view = null;
+
+    // The page parses the same bytes as the worklet, so the view can draw the pattern text.
+    function showSong(bytes) {
+      const song = parseMod(bytes);
+      view = new TrackerView(el('view'), { song });
+      el('mutes').innerHTML = '';
+      for (let i = 1; i <= song.channels; i++) {              // one mute checkbox per channel
+        const label = document.createElement('label');
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.onchange = () => audio && audio.setParam('MUTE_' + i, box.checked ? 1 : 0);
+        label.appendChild(box);
+        label.appendChild(document.createTextNode(' mute ' + i));
+        el('mutes').appendChild(label);
+      }
+    }
+
     el('start').onclick = async () => {
-      audio = await startAudio(new URL('./mod-audio.js', import.meta.url).href);
-      el('start').disabled = true;
-      el('stop').disabled = false;
-      el('file').disabled = false;
-      (function show() {                                // the player position, 30 times a second
+      audio = await startAudio(new URL('./mod-audio.js', import.meta.url).href, { scopes: 8 });
+      showSong(makeTestMod());
+      el('start').disabled = true; el('stop').disabled = false; el('file').disabled = false;
+      (function draw() {                                     // redraw with the player's position
         if (!audio) return;
-        const p = audio.position;
-        if (p) el('pos').textContent =
-          `"${p.title}"   order ${p.order}  pattern ${p.pattern}  row ${String(p.row).padStart(2)}   speed ${p.speed}  bpm ${p.bpm}\n` +
-          p.channels.map((c, i) => `ch${i + 1}: sample ${String(c.sample).padStart(2)}  vol ${String(c.volume).padStart(2)}  ` +
-                                   '#'.repeat(Math.round(c.volume / 4))).join('\n');
-        requestAnimationFrame(show);
+        if (view) view.update(audio.position, audio.scopes);
+        requestAnimationFrame(draw);
       })();
     };
+
     el('stop').onclick = async () => {
       await audio.stop(); audio = null;
-      el('start').disabled = false;
-      el('stop').disabled = true;
-      el('file').disabled = true;
+      el('start').disabled = false; el('stop').disabled = true; el('file').disabled = true;
     };
-    el('file').onchange = async (e) => {                 // the page reads the file; the worklet cannot
+
+    el('file').onchange = async (e) => {                     // the page reads the file; the worklet cannot
       const buffer = await e.target.files[0].arrayBuffer();
+      showSong(new Uint8Array(buffer));
       audio.setParam('MOD_DATA', buffer);
     };
-    el('bpm').oninput = e => audio && audio.setParam('BPM', Number(e.target.value));
+
+    el('speed').oninput = e => {
+      el('speedText').textContent = Number(e.target.value).toFixed(2);
+      if (audio) audio.setParam('TEMPO_FACTOR', Number(e.target.value));
+    };
   </script>
 </body>
 </html>

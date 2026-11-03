@@ -11,6 +11,7 @@
 const AMIGA_CLOCK = 3546895;            // PAL Amiga: sample rate = AMIGA_CLOCK / period
 const MIN_PERIOD = 113, MAX_PERIOD = 856;
 const ROWS_PER_PATTERN = 64;
+const SCOPE_LENGTH = 512;               // samples remembered per channel for the oscilloscopes
 
 // ============================================================ data classes
 /** One instrument: an 8-bit recording plus loop points and default volume. */
@@ -108,6 +109,9 @@ class Channel {
     this.volume = 0; this.effect = 0; this.param = 0;
     this.portaSpeed = 0; this.vibratoSpeed = 0; this.vibratoDepth = 0; this.vibratoPos = 0;
     this.delayedPeriod = 0;
+    this.muted = false;
+    this.scope = new Float32Array(SCOPE_LENGTH);               // last outputs (ring buffer), for displays
+    this.scopePos = 0;
   }
   /** Read one interpolated sample value and advance (the mixer's inner step). */
   nextSample() {
@@ -121,7 +125,10 @@ class Channel {
     } else if (this.position >= s.length) {
       this.playing = false;
     }
-    return value * (this.volume / 64);
+    const out = this.muted ? 0 : value * (this.volume / 64);
+    this.scope[this.scopePos] = out;
+    this.scopePos = (this.scopePos + 1) % SCOPE_LENGTH;
+    return out;
   }
 }
 
@@ -137,10 +144,13 @@ class ModPlayer {
       this.channels.push(new Channel(i % 4 === 0 || i % 4 === 3 ? -0.7 : 0.7));
     this.channelGain = 2 / song.channels;
     this.speed = 6; this.bpm = 125;
+    this.tempoFactor = 1;                   // the LISTENER's speed control, on top of the song's BPM
     this.order = 0; this.row = 0; this.tick = 0; this.samplesUntilTick = 0;
     this.jumpOrder = -1; this.breakRow = -1;
   }
-  samplesPerTick() { return Math.floor(this.sampleRate * 2.5 / this.bpm); }   // 882 at 44100, 125 BPM
+  samplesPerTick() {                       // 882 at 44100 Hz, 125 BPM, factor 1
+    return Math.floor(this.sampleRate * 2.5 / (this.bpm * this.tempoFactor));
+  }
 
   // ------------------------------------------------------------ the mixer
   fill(left, right) {
@@ -233,7 +243,7 @@ class ModPlayer {
         else if (x === 0xB) ch.volume = Math.max(ch.volume - y, 0);
         else if (x === 0xC && y === 0) ch.volume = 0;
         break;
-      case 0xF:
+      case 0xF:                                                // the SONG sets its tempo; obeyed every time
         if (cell.param && cell.param < 32) this.speed = cell.param;
         else if (cell.param >= 32) this.bpm = cell.param;
         break;
@@ -285,8 +295,12 @@ class ModPlayer {
 
   // ------------------------------------------------------------ host interface
   setParam(name, value) {
-    if (name === 'BPM') this.bpm = Math.floor(value);
+    if (name === 'TEMPO_FACTOR') this.tempoFactor = value;                 // 0.5 .. 2.0
     else if (name === 'MOD_DATA') this.loadSong(parseMod(new Uint8Array(value)));
+    else if (name.startsWith('MUTE_')) {                                   // MUTE_1 .. MUTE_n
+      const ch = this.channels[Number(name.slice(5)) - 1];
+      if (ch) ch.muted = Boolean(value);
+    }
   }
 
   getPosition() {
@@ -294,9 +308,18 @@ class ModPlayer {
       order: this.order, pattern: this.song.orders[this.order], row: this.row,
       speed: this.speed, bpm: this.bpm, title: this.song.title,
       channels: this.channels.map(ch => ({
-        volume: ch.playing ? ch.volume : 0, period: ch.playbackPeriod, sample: ch.sampleNumber,
+        volume: ch.playing && !ch.muted ? ch.volume : 0, period: ch.playbackPeriod, sample: ch.sampleNumber,
       })),
     };
+  }
+
+  /** Copy each channel's recent output into the given arrays, oldest first (BIBLE 5d.4). */
+  tapScopes(targets) {
+    this.channels.forEach((ch, i) => {
+      const t = targets[i];
+      if (!t) return;
+      for (let k = 0; k < t.length; k++) t[k] = ch.scope[(ch.scopePos + k) % SCOPE_LENGTH];
+    });
   }
 }
 
