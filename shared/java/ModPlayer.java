@@ -8,6 +8,10 @@
  * parseMod, Sample, Cell, Song, Channel, ModPlayer (fill, doTick, processRow,
  * processTickEffects, playbackPeriod, advanceRow), makeTestMod.
  * The AudioHost at the bottom is the verbatim copy from SineTest.java.
+ *
+ * Note on tempo: the SONG sets its own tempo with the Fxx effect, and a correct
+ * player obeys it every time it appears.  The listener's speed control is
+ * therefore a FACTOR on top (tempoFactor, like a turntable's pitch slider).
  */
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
@@ -124,6 +128,7 @@ public class ModPlayer implements SineTestLike.Synth {
         Sample sample;
         int sampleNumber;
         boolean playing;
+        boolean muted;                // listener's mute button (MUTE_n)
         double position;              // where we are inside the sample (fractional)
         double step;                  // sample positions per output sample (set each tick)
         double period, targetPeriod, playbackPeriod;
@@ -148,7 +153,7 @@ public class ModPlayer implements SineTestLike.Synth {
             } else if (position >= sample.length) {
                 playing = false;
             }
-            return value * (volume / 64f);
+            return muted ? 0f : value * (volume / 64f);
         }
     }
 
@@ -157,6 +162,7 @@ public class ModPlayer implements SineTestLike.Synth {
     Channel[] channels;
     float channelGain;
     int speed, bpm, order, row, tick, samplesUntilTick;
+    double tempoFactor = 1;           // the LISTENER's speed control, on top of the song's BPM
     int jumpOrder = -1, breakRow = -1;
 
     ModPlayer(int sampleRate, Song song) {
@@ -170,13 +176,13 @@ public class ModPlayer implements SineTestLike.Synth {
         for (int i = 0; i < song.channels; i++)                // Amiga "LRRL" at 70 % separation
             channels[i] = new Channel((i % 4 == 0 || i % 4 == 3) ? -0.7 : 0.7);
         channelGain = 2f / song.channels;
-        speed = 6; bpm = 125;
+        speed = 6; bpm = 125; tempoFactor = 1;
         order = 0; row = 0; tick = 0; samplesUntilTick = 0;
         jumpOrder = -1; breakRow = -1;
     }
 
-    int samplesPerTick() {
-        return (int) (sampleRate * 2.5 / bpm);                 // 882 at 44100 Hz, 125 BPM
+    int samplesPerTick() {                                     // 882 at 44100 Hz, 125 BPM, factor 1
+        return (int) (sampleRate * 2.5 / (bpm * tempoFactor));
     }
 
     // ------------------------------------------------------------ the mixer
@@ -271,7 +277,7 @@ public class ModPlayer implements SineTestLike.Synth {
                 else if (x == 0xB) ch.volume = Math.max(ch.volume - y, 0);
                 else if (x == 0xC && y == 0) ch.volume = 0;
                 break;
-            case 0xF:
+            case 0xF:                                           // the SONG sets its tempo; obeyed every time
                 if (cell.param != 0 && cell.param < 32) speed = cell.param;
                 else if (cell.param >= 32) bpm = cell.param;
                 break;
@@ -323,8 +329,14 @@ public class ModPlayer implements SineTestLike.Synth {
         return period;
     }
 
+    // ------------------------------------------------------------ for displays / sliders
     void setParam(String name, double value) {
-        if (name.equals("BPM")) bpm = (int) value;
+        if (name.equals("TEMPO_FACTOR")) {                      // 0.5 .. 2.0
+            tempoFactor = value;
+        } else if (name.startsWith("MUTE_")) {                  // MUTE_1 .. MUTE_n
+            int index = Integer.parseInt(name.substring(5)) - 1;
+            if (index >= 0 && index < channels.length) channels[index].muted = value != 0;
+        }
     }
 
     // ============================================================ a test song
@@ -422,6 +434,7 @@ public class ModPlayer implements SineTestLike.Synth {
                         s.looping ? "  loop " + s.loopStart + "+" + s.loopLength : "");
         }
         ModPlayer player = new ModPlayer(SineTestLike.AudioHost.SAMPLE_RATE, song);
+        // Try this: player.setParam("TEMPO_FACTOR", 1.5);  or  player.setParam("MUTE_2", 1);
         SineTestLike.AudioHost host = new SineTestLike.AudioHost(player);
         host.start();
         while (true) {

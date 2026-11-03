@@ -21,6 +21,11 @@ Structure (same names in ModPlayer.java and mod-audio.js):
     ModPlayer        sequencer (do_tick, process_row, process_tick_effects,
                      playback_period, advance_row) and mixer (fill, mix_channel)
     make_test_mod()  writes a small MOD file into memory, for testing
+
+Note on tempo: the SONG sets its own tempo with the Fxx effect, and a correct
+player obeys it every time it appears.  The listener's speed control is
+therefore a FACTOR on top (tempo_factor, like a turntable's pitch slider),
+never an override.
 """
 
 import math
@@ -135,6 +140,7 @@ class Channel:
         self.sample = None            # the Sample being played
         self.sample_number = 0
         self.playing = False
+        self.muted = False            # listener's mute button (MUTE_n)
         self.position = 0.0           # where we are inside the sample (fractional)
         self.period = 0.0             # current pitch (may slide)
         self.target_period = 0.0      # for tone portamento
@@ -160,8 +166,9 @@ class ModPlayer:
         # Full separation is tiring on headphones, so we use 70 %.
         self.channels = [Channel(-0.7 if i % 4 in (0, 3) else 0.7) for i in range(song.channels)]
         self.channel_gain = 2.0 / song.channels
-        self.speed = 6                # ticks per row
-        self.bpm = 125                # tempo
+        self.speed = 6                # ticks per row (the song's)
+        self.bpm = 125                # tempo (the song's)
+        self.tempo_factor = 1.0       # the LISTENER's speed control, on top of the song's BPM
         self.order = 0                # position in the order list
         self.row = 0
         self.tick = 0
@@ -169,8 +176,8 @@ class ModPlayer:
         self.jump_order = None        # set by Bxx
         self.break_row = None         # set by Dxx
 
-    def samples_per_tick(self):
-        return int(self.sample_rate * 2.5 / self.bpm)        # 882 at 44100 Hz, 125 BPM
+    def samples_per_tick(self):       # 882 at 44100 Hz, 125 BPM, factor 1
+        return int(self.sample_rate * 2.5 / (self.bpm * self.tempo_factor))
 
     # ------------------------------------------------------------ the mixer
     def fill(self, frames):
@@ -208,6 +215,8 @@ class ModPlayer:
             positions = np.minimum(positions, smp.length - 1)
             if ch.position >= smp.length:
                 ch.playing = False
+        if ch.muted:                       # the position still advances; we just add nothing
+            return
         index = positions.astype(np.int64)
         frac = (positions - index).astype(np.float32)
         # linear interpolation between the two nearest sample values
@@ -295,7 +304,7 @@ class ModPlayer:
             elif x == 0xA: ch.volume = min(ch.volume + y, 64)
             elif x == 0xB: ch.volume = max(ch.volume - y, 0)
             elif x == 0xC and y == 0: ch.volume = 0
-        elif cell.effect == 0xF and cell.param:
+        elif cell.effect == 0xF and cell.param:               # the SONG sets its tempo; obeyed every time
             if cell.param < 32:
                 self.speed = cell.param
             else:
@@ -351,13 +360,17 @@ class ModPlayer:
 
     # ------------------------------------------------------------ for displays / sliders
     def set_param(self, name, value):
-        if name == 'BPM':
-            self.bpm = int(value)
+        if name == 'TEMPO_FACTOR':                            # 0.5 .. 2.0
+            self.tempo_factor = float(value)
+        elif name.startswith('MUTE_'):                        # MUTE_1 .. MUTE_n
+            index = int(name[5:]) - 1
+            if 0 <= index < len(self.channels):
+                self.channels[index].muted = bool(value)
 
     def get_position(self):
         return {'order': self.order, 'pattern': self.song.orders[self.order],
                 'row': self.row, 'speed': self.speed, 'bpm': self.bpm,
-                'channels': [{'volume': ch.volume if ch.playing else 0,
+                'channels': [{'volume': ch.volume if ch.playing and not ch.muted else 0,
                               'period': ch.playback_period, 'sample': ch.sample_number}
                              for ch in self.channels]}
 
@@ -454,6 +467,7 @@ if __name__ == '__main__':
             print(f'  sample {i + 1:2d}: {smp.name:22s} {smp.length:6d} bytes'
                   + (f'  loop {smp.loop_start}+{smp.loop_length}' if smp.looping else ''))
     player = ModPlayer(SAMPLE_RATE, song)
+    # Try this: player.set_param('TEMPO_FACTOR', 1.5)  or  player.set_param('MUTE_2', True)
     stream = start_audio(player)
     try:
         while True:
