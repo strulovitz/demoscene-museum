@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<!-- museum/index.html  --  the Demoscene Museum.  Serve the repository root with
+     python -m http.server 8000   and open   http://localhost:8000/museum/  -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Demoscene Museum</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #000; color: #ddd; font-family: system-ui, sans-serif; overflow: hidden; }
+    #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+    #view { width: 100vw; height: 75vw; max-height: 100vh; max-width: 133.33vh; image-rendering: pixelated; touch-action: none; }
+    .hud { position: fixed; pointer-events: none; text-shadow: 0 1px 3px #000; }
+    #hall { top: 12px; left: 14px; font-size: 14px; opacity: .8; }
+    #label { bottom: 64px; left: 0; right: 0; text-align: center; font-size: 18px; }
+    #hint { bottom: 24px; left: 0; right: 0; text-align: center; font-size: 14px; opacity: .85; transition: opacity .6s; }
+    #minimap { position: fixed; top: 10px; right: 10px; opacity: .7; image-rendering: pixelated; }
+    #focus { position: fixed; inset: 0; background: rgba(0,0,0,.92); display: none; flex-direction: column; align-items: center; overflow: auto; padding: 16px; box-sizing: border-box; }
+    #focus.open { display: flex; }
+    #focusCanvas { width: min(90vw, 120vh); aspect-ratio: 4 / 3; image-rendering: pixelated; background: #000; }
+    #focusTitle { font-size: 22px; margin: 12px 0 2px; }
+    #focusMeta { opacity: .7; font-size: 14px; margin-bottom: 10px; }
+    #focusParams { display: flex; flex-direction: column; gap: 6px; width: min(90vw, 600px); font-family: monospace; font-size: 13px; }
+    #focusParams label { display: flex; align-items: center; gap: 8px; }
+    #focusParams input { flex: 1; }
+    #focusLinks { margin: 14px 0; font-size: 14px; }
+    #focusLinks a { color: #78dce8; margin: 0 10px; }
+    button { background: #222; color: #ddd; border: 1px solid #555; padding: 8px 16px; font-size: 14px; border-radius: 4px; cursor: pointer; }
+    #back { position: fixed; top: 12px; left: 12px; }
+  </style>
+</head>
+<body>
+  <div id="stage"><canvas id="view" width="320" height="240"></canvas></div>
+  <canvas id="minimap" width="80" height="40"></canvas>
+  <div id="hall" class="hud"></div>
+  <div id="label" class="hud"></div>
+  <div id="hint" class="hud"></div>
+  <div id="focus">
+    <button id="back">&larr; Back to the hall</button>
+    <canvas id="focusCanvas" width="320" height="200"></canvas>
+    <div id="focusTitle"></div>
+    <div id="focusMeta"></div>
+    <div id="focusParams"></div>
+    <div id="focusLinks"></div>
+    <div style="opacity:.6;font-size:12px;margin-bottom:20px">Educational remake. The original work belongs to its authors.</div>
+  </div>
+  <script type="module" src="./museum.js"></script>
+</body>
+</html>
