@@ -3,7 +3,9 @@
 How old graphics code becomes a readable modern remake.  Read this when
 you port an exhibit; chapter 3 defines what the result must look like,
 this chapter explains how to get there.  The reference example is
-`exhibits/tube/` (chapter 8 shows its lecture).
+`exhibits/tube/` (chapter 8 shows its lecture); its ports are
+`exhibits/tube/python/tube.py`, `exhibits/tube/java/Tube.java` and
+`exhibits/tube/web/tube.js`.
 
 ## 4.1 The porting method (always the same five steps)
 
