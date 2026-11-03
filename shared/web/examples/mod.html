@@ -29,6 +29,15 @@
     let audio = null;
     let view = null;
 
+    // ?file=<url>: fetch a .mod from the server and play it instead of the built-in song.
+    let loaded = null;
+    const query = new URLSearchParams(location.search);
+    if (query.has('file')) {
+      loaded = new Uint8Array(await (await fetch(query.get('file'))).arrayBuffer());
+      el('start').textContent = 'Start (loaded song)';
+      showSong(loaded);
+    }
+
     // The page parses the same bytes as the worklet, so the view can draw the pattern text.
     function showSong(bytes) {
       const song = parseMod(bytes);
@@ -47,7 +56,8 @@
 
     el('start').onclick = async () => {
       audio = await startAudio(new URL('./mod-audio.js', import.meta.url).href, { scopes: 8 });
-      showSong(makeTestMod());
+      showSong(loaded || makeTestMod());
+      if (loaded) audio.setParam('MOD_DATA', loaded.buffer);   // same path as the file picker
       el('start').disabled = true; el('stop').disabled = false; el('file').disabled = false;
       (function draw() {                                     // redraw with the player's position
         if (!audio) return;

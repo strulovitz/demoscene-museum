@@ -9,6 +9,10 @@
  * exhibit's own pixel buffer instead of the concrete texture, so the works hang
  * on the walls and run live.
  *
+ * An exhibit may show ONE picture on all four faces (a graphics work), or FOUR
+ * different pictures, one per face (a music pillar: one channel per side).
+ * Pictures are either palette-indexed (pixels + lut) or ready RGB (rgba).
+ *
  * No DOM here: render() fills a Uint32Array of pixels.  museum.js shows it.
  */
 
@@ -100,7 +104,11 @@ export class Raycaster {
   }
 
   /**
-   * player: { x, y, dirX, dirY }      exhibits: Map "x,y" -> { lut: [Uint32Array x4], pixels, width, height }
+   * player: { x, y, dirX, dirY }
+   * exhibits: Map "x,y" -> picture source.  A source is either
+   *   { pixels, width, height, lut: [Uint32Array x4] }     palette-indexed, or
+   *   { rgba, width, height }                               ready colours, or
+   *   { faces: [source, source, source, source] }           one source per face (west, north, east, south)
    * Fills this.image.  Sets exhibit.seen = true for exhibits hit by any ray.
    */
   render(player, exhibits) {
@@ -129,28 +137,39 @@ export class Raycaster {
       const lineH = H / Math.max(dist, 0.0001);
       const top = H / 2 - lineH / 2;
       const y0 = Math.max(0, Math.ceil(top)), y1 = Math.min(H, Math.floor(top + lineH));
-      // ---- 4. where on the wall did we hit (0..1 across the cell), oriented so textures don't mirror
-      let wallX = side === 0 ? player.y + dist * rayY : player.x + dist * rayX;
-      wallX -= Math.floor(wallX);
-      if ((side === 0 && rayX > 0) || (side === 1 && rayY < 0)) wallX = 1 - wallX;
+      // ---- 4. where on the wall did we hit (0..1 across the cell)
+      const hitAlong = side === 0 ? player.y + dist * rayY : player.x + dist * rayX;
+      let wallX = hitAlong - Math.floor(hitAlong);
+      // for the concrete texture: oriented so the texture does not mirror between faces
+      let texU = wallX;
+      if ((side === 0 && rayX > 0) || (side === 1 && rayY < 0)) texU = 1 - texU;
+      // for pictures: oriented so it increases towards the VIEWER'S RIGHT (text must read left to right)
+      let faceU = wallX;
+      if ((side === 0 && player.dirX < 0) || (side === 1 && player.dirY > 0)) faceU = 1 - faceU;
       const sh = this.shade(dist, side);
       const tex = this.wallShaded[Math.min(SHADES - 1, (sh * SHADES) | 0)];
-      const texX = (wallX * TEX) | 0;
+      const texX = (texU * TEX) | 0;
       const exhibit = exhibits.get(mapX + ',' + mapY);
-      if (exhibit) exhibit.seen = true;
+      let face = null;
+      if (exhibit) {
+        exhibit.seen = true;
+        const faceIndex = side === 0 ? (rayX > 0 ? 0 : 2) : (rayY > 0 ? 1 : 3);   // 0 west, 1 north, 2 east, 3 south
+        face = exhibit.faces ? exhibit.faces[faceIndex] : exhibit;
+      }
       if (col === W >> 1) this.centerHit = { x: mapX, y: mapY, dist, exhibit: exhibit || null };
       // ---- 5. draw the column: ceiling, wall strip (frame or concrete), floor
       for (let y = 0; y < y0; y++) image[y * W + col] = this.ceilRow[y];
-      const inFrameU = exhibit && wallX > FRAME_U0 && wallX < FRAME_U1;
-      const inBorderU = exhibit && wallX > FRAME_U0 - BORDER && wallX < FRAME_U1 + BORDER;
-      const exLut = exhibit ? exhibit.lut[Math.min(3, ((1 - sh) * 4) | 0)] : null;   // screens glow: only 4 fog levels
-      const exCol = exhibit ? Math.min(exhibit.width - 1, (((wallX - FRAME_U0) / (FRAME_U1 - FRAME_U0)) * exhibit.width) | 0) : 0;
+      const inFrameU = face && faceU > FRAME_U0 && faceU < FRAME_U1;
+      const inBorderU = face && faceU > FRAME_U0 - BORDER && faceU < FRAME_U1 + BORDER;
+      const exLut = face && face.lut ? face.lut[Math.min(3, ((1 - sh) * 4) | 0)] : null;   // screens glow: only 4 fog levels
+      const exCol = face ? Math.min(face.width - 1, (((faceU - FRAME_U0) / (FRAME_U1 - FRAME_U0)) * face.width) | 0) : 0;
       for (let y = y0; y < y1; y++) {
         const v = (y - top) / lineH;                            // 0 at the wall's top, 1 at its foot
         let c;
         if (inFrameU && v > FRAME_V0 && v < FRAME_V1) {
-          const exRow = Math.min(exhibit.height - 1, (((v - FRAME_V0) / FRAME_H) * exhibit.height) | 0);
-          c = exLut[exhibit.pixels[exRow * exhibit.width + exCol]];
+          const exRow = Math.min(face.height - 1, (((v - FRAME_V0) / FRAME_H) * face.height) | 0);
+          const idx = exRow * face.width + exCol;
+          c = face.rgba ? face.rgba[idx] : exLut[face.pixels[idx]];
         } else if (inBorderU && v > FRAME_V0 - BORDER && v < FRAME_V1 + BORDER) {
           c = this.borderColor;
         } else {
